@@ -1,11 +1,31 @@
-use std::io;
+extern crate dotenv;
+// use database::redis::get_connection;
+use dotenv::dotenv;
+use utils::args::Args;
+
+pub mod database;
+pub mod utils;
+
+use clap::Parser;
 
 fn main() {
-    println!("Hello, world!");
+    dotenv().ok();
 
-    let mut guess = String::new();
+    let args = Args::parse();
+    utils::args::print_args(args);
 
-    io::stdin().read_line(&mut guess).expect("Fails to read new line");
-    
-    println!("You guessed: {guess}");
+    // let mut conn = get_connection();
+
+    // let _: () = redis::cmd("SET")
+    //     .arg("foo")
+    //     .arg("bar")
+    //     .query(&mut conn)
+    //     .expect("failed to execute SET for 'foo'");
+
+    // let bar: String = redis::cmd("GET")
+    //     .arg("foo")
+    //     .query(&mut conn)
+    //     .expect("failed to execute GET for 'foo'");
+
+    // println!("value for 'foo' = {}", bar);
 }
