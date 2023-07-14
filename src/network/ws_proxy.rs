@@ -1,17 +1,17 @@
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
-use futures_util::{SinkExt, StreamExt, TryFutureExt};
+use super::protocol::command::{process_command, Command};
+use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use serde_json::Value;
 use warp::hyper::StatusCode;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 #[derive(Serialize)]
-struct ClientInfo {
-    clients_queue: Vec<String>,
-    clients_active: Vec<String>,
+pub struct ClientInfo {
+    pub clients_queue: Vec<String>,
+    pub clients_active: Vec<String>,
 }
 
 pub async fn make_ws_context() {
@@ -26,9 +26,13 @@ pub async fn make_ws_context() {
         // .and(users)
         .and(shared_connection_context.clone())
         .map(
-            move |id: String, ws: warp::ws::Ws, shared_connection_context: SharedConnectionContext| {
+            move |id: String,
+                  ws: warp::ws::Ws,
+                  shared_connection_context: SharedConnectionContext| {
                 // This will call our function if the handshake succeeds.
-                ws.on_upgrade(move |socket| user_connected(socket, shared_connection_context.clone(), id))
+                ws.on_upgrade(move |socket| {
+                    user_connected(socket, shared_connection_context.clone(), id)
+                })
             },
         );
 
@@ -63,7 +67,6 @@ async fn register_client(
             .read()
             .await
             .clients
-            .clone()
             .keys()
             .map(|e| e.to_string())
             .collect::<Vec<String>>(),
@@ -72,11 +75,6 @@ async fn register_client(
     let json_response = serde_json::to_string(&response).unwrap();
 
     Ok(warp::reply::with_status(json_response, StatusCode::OK))
-
-    // Ok(warp::reply::with_status(
-    //     format!(""),
-    //     StatusCode::OK,
-    // ))
 }
 
 async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: String) {
@@ -84,38 +82,21 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
         eprintln!("Unautorized connection user, refusing {}", id);
         return;
     }
-
     eprintln!("new connection user: {}", id);
-
     context.write().await.client_queue.remove(&id);
 
-    // Split the socket into a sender and receive of messages.
-    let (mut user_ws_tx, mut user_ws_rx) = ws.split();
+    let (sender, mut receiver) = ws.split();
 
-    // Use an unbounded channel to handle buffering and flushing of messages
-    // to the websocket...
-    let (tx, rx) = mpsc::unbounded_channel();
-    let mut rx = UnboundedReceiverStream::new(rx);
-
-    tokio::task::spawn(async move {
-        while let Some(message) = rx.next().await {
-            user_ws_tx
-                .send(message)
-                .unwrap_or_else(|e| {
-                    eprintln!("websocket send error: {}", e);
-                })
-                .await;
-        }
-    });
 
     // Save the sender in our list of connected users.
-    context.write().await.clients.insert(id.to_string(), tx);
-    // Return a `Future` that is basically a state machine managing
-    // this specific user's connection.
+    context
+        .write()
+        .await
+        .clients
+        .insert(id.to_string(), sender);
 
-    // Every time the user sends a message, broadcast it to
-    // all other users...
-    while let Some(result) = user_ws_rx.next().await {
+
+    while let Some(result) = receiver.next().await {
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
@@ -133,22 +114,55 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
 
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
     // Skip any non-Text messages...
-    let msg = if let Ok(s) = msg.to_str() {
+    let msg_str = if let Ok(s) = msg.to_str() {
         s
     } else {
         return;
     };
+    
 
-    let new_msg = format!("<User#{}>: {}", my_id, msg);
+    let new_msg = format!("<User#{}>: {}", my_id, msg_str);
 
+    // Deserialize the JSON message into a serde_json::Value object
+    let json: Value = match serde_json::from_str(&msg_str) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("Failed to deserialize JSON message: {}", error);
+            return;
+        }
+    };
+
+    if json.get("op").is_some() {
+        // Ros message, to be streamed to robot and forwarded to clients
+
+        // send_robot()
+        send_other(context, my_id, msg).await;
+    } else if json.get("command").is_some() {
+        let command: Result<Command, _> = serde_json::from_value(json);
+        if let Ok(command) = command {
+            process_command(command, my_id, context).await;
+        } else {
+            eprintln!("Failed to deserialize Format2: {:?}", command);
+        }
+    }
+
+    // Message::text(new_msg.clone())
+}
+
+pub async fn send_other(context: &SharedConnectionContext, client_id: &String, message: Message) {
     // New message from this user, send it to everyone else (except same uid)...
-    for (uid, tx) in context.read().await.clients.iter() {
-        if *my_id != *uid {
-            if let Err(_disconnected) = tx.send(Message::text(new_msg.clone())) {
-                // The tx is disconnected, our `user_disconnected` code
-                // should be happening in another task, nothing more to
-                // do here.
-            }
+    for (uid, sender) in context.write().await.clients.iter_mut() {
+        if *client_id != *uid {
+            sender.send(message.clone()).await;
+        }
+    }
+}
+
+pub async fn send_client(context: &SharedConnectionContext, client_id: &String, message: Message) {
+    // Respond to the user defined by the client_id
+    for (uid, sender) in context.write().await.clients.iter_mut() {
+        if *client_id == *uid {
+            sender.send(message.clone()).await;
         }
     }
 }
