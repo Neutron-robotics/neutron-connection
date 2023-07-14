@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::Value;
 use warp::hyper::StatusCode;
 use warp::ws::{Message, WebSocket};
-use warp::Filter;
+use warp::{Filter, Reply};
 
 #[derive(Serialize)]
 pub struct ClientInfo {
@@ -53,6 +53,14 @@ async fn register_client(
     context: SharedConnectionContext,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     println!("Id is {client_id}");
+
+    if context.read().await.clients.contains_key(&client_id) {
+        return Ok(
+            warp::reply::with_status(warp::reply(), warp::http::StatusCode::BAD_REQUEST)
+                .into_response(),
+        );
+    }
+
     context.write().await.client_queue.insert(client_id);
 
     let response = ClientInfo {
@@ -74,7 +82,7 @@ async fn register_client(
 
     let json_response = serde_json::to_string(&response).unwrap();
 
-    Ok(warp::reply::with_status(json_response, StatusCode::OK))
+    Ok(warp::reply::with_status(json_response, StatusCode::OK).into_response())
 }
 
 async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: String) {
@@ -87,14 +95,8 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
 
     let (sender, mut receiver) = ws.split();
 
-
     // Save the sender in our list of connected users.
-    context
-        .write()
-        .await
-        .clients
-        .insert(id.to_string(), sender);
-
+    context.write().await.clients.insert(id.to_string(), sender);
 
     while let Some(result) = receiver.next().await {
         let msg = match result {
@@ -119,9 +121,9 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
     } else {
         return;
     };
-    
 
     let new_msg = format!("<User#{}>: {}", my_id, msg_str);
+    println!("{}", new_msg);
 
     // Deserialize the JSON message into a serde_json::Value object
     let json: Value = match serde_json::from_str(&msg_str) {
@@ -153,7 +155,9 @@ pub async fn send_other(context: &SharedConnectionContext, client_id: &String, m
     // New message from this user, send it to everyone else (except same uid)...
     for (uid, sender) in context.write().await.clients.iter_mut() {
         if *client_id != *uid {
-            sender.send(message.clone()).await;
+            if let Err(err) = sender.send(message.clone()).await {
+                eprintln!("Fail to send other {:?}", err);
+            }
         }
     }
 }
@@ -162,13 +166,15 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
     // Respond to the user defined by the client_id
     for (uid, sender) in context.write().await.clients.iter_mut() {
         if *client_id == *uid {
-            sender.send(message.clone()).await;
+            if let Err(err) = sender.send(message.clone()).await {
+                eprintln!("Fail to send client {:?}", err);
+            }
         }
     }
 }
 
 async fn user_disconnected(my_id: &String, context: &SharedConnectionContext) {
-    eprintln!("good bye user: {}", my_id);
+    eprintln!("User disconnected : {}", my_id);
 
     // Stream closed up, so remove from the user list
     context.write().await.clients.remove(my_id);
