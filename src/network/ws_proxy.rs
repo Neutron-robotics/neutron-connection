@@ -17,8 +17,12 @@ pub struct ClientInfo {
 
 pub async fn make_ws_context() {
     let shared_connection_context = SharedConnectionContext::default();
-    websocket_client(&shared_connection_context, "localhost", "3000").await;
-
+    match websocket_client(&shared_connection_context, "localhost", "3000").await {
+        Ok(()) => {}
+        Err(err) => {
+            eprintln!("Robot client encountered an error: {}", err);
+        }
+    }
     let shared_connection_context = warp::any().map(move || shared_connection_context.clone());
 
     // GET /connection/:id -> websocket upgrade
@@ -26,7 +30,6 @@ pub async fn make_ws_context() {
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::path::param::<String>())
         .and(warp::ws())
-        // .and(users)
         .and(shared_connection_context.clone())
         .map(
             move |id: String,
@@ -82,22 +85,6 @@ async fn register_client(
             .map(|e| e.to_string())
             .collect::<Vec<String>>(),
     };
-
-    if let Some(robot) = &mut context.write().await.robot {
-        println!("Send ghw");
-        robot
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                "Hello world".to_string(),
-            ))
-            .await;
-    }
-
-    // if let Some(robot) = &mut context.write().await.robot {
-    //     // Assuming robot has a method to send a message, such as `send_message`
-    //     let message = WSMessage::text("Hello, World!");
-    //     robot.lock().unwrap().send_message(&message).unwrap();
-    //     println!("Sent Hello world")
-    // }
 
     let json_response = serde_json::to_string(&response).unwrap();
 
@@ -197,9 +184,13 @@ pub async fn send_robot(context: &SharedConnectionContext, message: &Message) {
     let tungstenite_message: tokio_tungstenite::tungstenite::Message =
         tokio_tungstenite::tungstenite::Message::binary(payload.to_owned());
 
-
     if let Some(robot) = &mut context.write().await.robot {
-        robot.send(tungstenite_message).await;
+        match robot.send(tungstenite_message).await {
+            Ok(()) => {}
+            Err(err) => {
+                print!("Error while sending message to robot {}", err.to_string());
+            }
+        }
     }
 }
 

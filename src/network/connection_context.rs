@@ -1,11 +1,11 @@
 use futures_util::stream::SplitSink;
-use tokio::net::TcpStream;
-use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use warp::ws::{Message, WebSocket};
 use tokio_tungstenite::tungstenite::Message as TMessage;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use warp::ws::{Message, WebSocket};
 
 pub struct ConnectionContext {
     pub clients: HashMap<String, SplitSink<WebSocket, Message>>,
