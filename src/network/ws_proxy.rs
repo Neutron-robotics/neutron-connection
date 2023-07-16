@@ -1,6 +1,7 @@
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
 use super::protocol::command::{process_command, Command};
+use super::ws_client::websocket_client;
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use serde_json::Value;
@@ -16,6 +17,8 @@ pub struct ClientInfo {
 
 pub async fn make_ws_context() {
     let shared_connection_context = SharedConnectionContext::default();
+    websocket_client(&shared_connection_context, "localhost", "3000").await;
+
     let shared_connection_context = warp::any().map(move || shared_connection_context.clone());
 
     // GET /connection/:id -> websocket upgrade
@@ -80,6 +83,22 @@ async fn register_client(
             .collect::<Vec<String>>(),
     };
 
+    if let Some(robot) = &mut context.write().await.robot {
+        println!("Send ghw");
+        robot
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                "Hello world".to_string(),
+            ))
+            .await;
+    }
+
+    // if let Some(robot) = &mut context.write().await.robot {
+    //     // Assuming robot has a method to send a message, such as `send_message`
+    //     let message = WSMessage::text("Hello, World!");
+    //     robot.lock().unwrap().send_message(&message).unwrap();
+    //     println!("Sent Hello world")
+    // }
+
     let json_response = serde_json::to_string(&response).unwrap();
 
     Ok(warp::reply::with_status(json_response, StatusCode::OK).into_response())
@@ -137,7 +156,7 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
     if json.get("op").is_some() {
         // Ros message, to be streamed to robot and forwarded to clients
 
-        // send_robot()
+        send_robot(context, &msg).await;
         send_other(context, my_id, msg).await;
     } else if json.get("command").is_some() {
         let command: Result<Command, _> = serde_json::from_value(json);
@@ -170,6 +189,17 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
                 eprintln!("Fail to send client {:?}", err);
             }
         }
+    }
+}
+
+pub async fn send_robot(context: &SharedConnectionContext, message: &Message) {
+    let payload: &[u8] = message.as_bytes(); // Extract payload as &[u8]
+    let tungstenite_message: tokio_tungstenite::tungstenite::Message =
+        tokio_tungstenite::tungstenite::Message::binary(payload.to_owned());
+
+
+    if let Some(robot) = &mut context.write().await.robot {
+        robot.send(tungstenite_message).await;
     }
 }
 
