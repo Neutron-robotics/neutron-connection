@@ -1,9 +1,9 @@
+use super::connection_context::SharedConnectionContext;
 use futures_util::stream::{SplitStream, StreamExt};
+use futures_util::SinkExt;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
-
-use super::connection_context::SharedConnectionContext;
 
 pub async fn websocket_client(
     connection_context: &SharedConnectionContext,
@@ -41,8 +41,8 @@ async fn process_socket(
     }
 }
 
-async fn robot_message(msg: Message, _: &SharedConnectionContext) {
-    let msg_str = if let Ok(s) = msg.into_text() {
+async fn robot_message(msg: Message, context: &SharedConnectionContext) {
+    let msg_str = if let Ok(s) = msg.clone().into_text() {
         s
     } else {
         return;
@@ -50,4 +50,32 @@ async fn robot_message(msg: Message, _: &SharedConnectionContext) {
 
     let new_msg = format!("<Robot>: {}", msg_str);
     println!("{}", new_msg);
+
+    forward_clients(context, msg).await;
+}
+
+pub async fn send_robot(context: &SharedConnectionContext, message: &warp::filters::ws::Message) {
+    let payload: &[u8] = message.as_bytes(); // Extract payload as &[u8]
+    let tungstenite_message: Message = Message::binary(payload.to_owned());
+
+    if let Some(robot) = &mut context.write().await.robot {
+        match robot.send(tungstenite_message).await {
+            Ok(()) => {}
+            Err(err) => {
+                print!("Error while sending message to robot {}", err.to_string());
+            }
+        }
+    }
+}
+
+pub async fn forward_clients(context: &SharedConnectionContext, msg: Message) {
+    let payload = msg.into_data(); // Extract payload as &[u8]
+    let warp_message: warp::filters::ws::Message =
+        warp::filters::ws::Message::binary(payload.to_owned());
+
+    for (_, sender) in context.write().await.clients.iter_mut() {
+        if let Err(err) = sender.send(warp_message.clone()).await {
+            eprintln!("Fail to send other {:?}", err);
+        }
+    }
 }

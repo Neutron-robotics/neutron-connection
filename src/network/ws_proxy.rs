@@ -1,3 +1,5 @@
+use crate::network::ws_client::send_robot;
+
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
 use super::protocol::command::{process_command, Command};
@@ -174,21 +176,6 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
         if *client_id == *uid {
             if let Err(err) = sender.send(message.clone()).await {
                 eprintln!("Fail to send client {:?}", err);
-            }
-        }
-    }
-}
-
-pub async fn send_robot(context: &SharedConnectionContext, message: &Message) {
-    let payload: &[u8] = message.as_bytes(); // Extract payload as &[u8]
-    let tungstenite_message: tokio_tungstenite::tungstenite::Message =
-        tokio_tungstenite::tungstenite::Message::binary(payload.to_owned());
-
-    if let Some(robot) = &mut context.write().await.robot {
-        match robot.send(tungstenite_message).await {
-            Ok(()) => {}
-            Err(err) => {
-                print!("Error while sending message to robot {}", err.to_string());
             }
         }
     }
