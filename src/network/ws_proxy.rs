@@ -3,7 +3,6 @@ use crate::network::ws_client::send_robot;
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
 use super::protocol::command::{process_command, Command};
-use super::ws_client::websocket_client;
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use serde_json::Value;
@@ -17,14 +16,7 @@ pub struct ClientInfo {
     pub clients_active: Vec<String>,
 }
 
-pub async fn make_ws_context() {
-    let shared_connection_context = SharedConnectionContext::default();
-    match websocket_client(&shared_connection_context, "localhost", "3000").await {
-        Ok(()) => {}
-        Err(err) => {
-            eprintln!("Robot client encountered an error: {}", err);
-        }
-    }
+pub async fn server_start(shared_connection_context: SharedConnectionContext) {
     let shared_connection_context = warp::any().map(move || shared_connection_context.clone());
 
     // GET /connection/:id -> websocket upgrade

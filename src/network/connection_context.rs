@@ -12,6 +12,7 @@ pub struct ConnectionContext {
     pub robot: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, TMessage>>,
     pub master_id: String,
     pub client_queue: HashSet<String>,
+    pub redis_connection: Option<redis::Connection>,
 }
 
 impl Default for ConnectionContext {
@@ -21,6 +22,7 @@ impl Default for ConnectionContext {
             robot: None,
             master_id: "".to_string(),
             client_queue: HashSet::new(),
+            redis_connection: None,
         }
     }
 }
