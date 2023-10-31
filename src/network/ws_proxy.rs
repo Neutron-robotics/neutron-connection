@@ -16,7 +16,7 @@ pub struct ClientInfo {
     pub clients_active: Vec<String>,
 }
 
-pub async fn server_start(shared_connection_context: SharedConnectionContext) {
+pub async fn server_start(port: u16, shared_connection_context: SharedConnectionContext) {
     let shared_connection_context = warp::any().map(move || shared_connection_context.clone());
 
     // GET /connection/:id -> websocket upgrade
@@ -45,7 +45,7 @@ pub async fn server_start(shared_connection_context: SharedConnectionContext) {
 
     let routes = connection.or(register);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }
 
 async fn register_client(

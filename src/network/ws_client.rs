@@ -8,7 +8,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 pub async fn websocket_client(
     connection_context: &SharedConnectionContext,
     hostname: &str,
-    port: &str,
+    port: &u16,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!("ws://{}:{}/", hostname, port);
 

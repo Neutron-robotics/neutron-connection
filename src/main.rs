@@ -1,5 +1,4 @@
 pub mod network;
-extern crate dotenv;
 use clap::Parser;
 use database::redis::get_connection;
 use utils::args::Args;
@@ -11,16 +10,18 @@ use network::{connection_context::SharedConnectionContext, ws_proxy::server_star
 async fn main() {
     let args = Args::parse();
     let conn = get_connection(&args.redis_connection_string);
-    utils::args::print_args(args);
+    utils::args::print_args(&args);
     let shared_connection_context = SharedConnectionContext::default();
     shared_connection_context.write().await.redis_connection = Some(conn);
 
-    match websocket_client(&shared_connection_context, "localhost", "3000").await {
-        Ok(()) => {}
+    match websocket_client(&shared_connection_context, &args.robot_host, &args.robot_port).await {
+        Ok(()) => {
+            println!("Robot client connected at address ws://{}:{}", &args.robot_host, &args.robot_port)
+        }
         Err(err) => {
             eprintln!("Robot client encountered an error: {}", err);
         }
     }
 
-    server_start(shared_connection_context).await;
+    server_start(args.application_port, shared_connection_context).await;
 }
