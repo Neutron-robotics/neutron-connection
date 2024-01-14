@@ -25,7 +25,6 @@ pub struct Args {
 }
 
 pub fn print_args(args: &Args) {
-    println!("Neutron Connection started!");
     println!("Args:");
     println!("id: {}", args.id);
     println!("robot_host: {}", args.robot_host);

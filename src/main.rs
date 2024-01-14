@@ -16,7 +16,8 @@ async fn main() {
 
     match websocket_client(&shared_connection_context, &args.robot_host, &args.robot_port).await {
         Ok(()) => {
-            println!("Robot client connected at address ws://{}:{}", &args.robot_host, &args.robot_port)
+            println!("Robot client connected at address ws://{}:{}", &args.robot_host, &args.robot_port);
+            println!("neutron connection {} ready", args.id);
         }
         Err(err) => {
             eprintln!("Robot client encountered an error: {}", err);

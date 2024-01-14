@@ -20,8 +20,6 @@ pub async fn websocket_client(
     let connection_context_clone = connection_context.clone();
     connection_context.write().await.robot = Some(sender);
     tokio::spawn(async move { process_socket(&connection_context_clone, &mut receiver).await });
-
-    println!("Robot connected!");
     Ok(())
 }
 
@@ -69,9 +67,16 @@ pub async fn send_robot(context: &SharedConnectionContext, message: &warp::filte
 }
 
 pub async fn forward_clients(context: &SharedConnectionContext, msg: Message) {
-    let payload = msg.into_data(); // Extract payload as &[u8]
+    let payload = match msg.into_text() {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("Failed to convert message to text: {:?}", err);
+            return;
+        }
+    };
+
     let warp_message: warp::filters::ws::Message =
-        warp::filters::ws::Message::binary(payload.to_owned());
+        warp::filters::ws::Message::text(payload.to_owned());
 
     for (_, sender) in context.write().await.clients.iter_mut() {
         if let Err(err) = sender.send(warp_message.clone()).await {
