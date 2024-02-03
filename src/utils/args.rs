@@ -12,7 +12,7 @@ pub struct Args {
     pub robot_host: String,
 
     #[clap(long, short, short = 'd')]
-    /// The port of the robot to be connected to 
+    /// The port of the robot to be connected to
     pub robot_port: u16,
 
     #[clap(long, short, short = 'p')]
@@ -21,7 +21,7 @@ pub struct Args {
 
     #[clap(long, short, short = 'r')]
     /// The robot id for the connection
-    pub redis_connection_string: String,
+    pub redis_connection_string: Option<String>,
 }
 
 pub fn print_args(args: &Args) {
@@ -30,5 +30,10 @@ pub fn print_args(args: &Args) {
     println!("robot_host: {}", args.robot_host);
     println!("robot_port: {}", args.robot_port);
     println!("application_port: {}", args.application_port);
-    println!("redis_connection_string: {}", args.redis_connection_string);
+    match &args.redis_connection_string {
+        Some(redis_connection_string) => {
+            println!("redis_connection_string: {}", redis_connection_string);
+        }
+        None => {}
+    }
 }

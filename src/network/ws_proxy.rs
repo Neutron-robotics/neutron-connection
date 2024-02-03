@@ -90,13 +90,12 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
         eprintln!("Unautorized connection user, refusing {}", id);
         return;
     }
-    eprintln!("new connection user: {}", id);
     context.write().await.client_queue.remove(&id);
 
     let (sender, mut receiver) = ws.split();
 
     // Save the sender in our list of connected users.
-    context.write().await.clients.insert(id.to_string(), sender);
+    context.write().await.client_connect(&id, sender);
 
     while let Some(result) = receiver.next().await {
         let msg = match result {
@@ -111,7 +110,7 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
 
     // user_ws_rx stream will keep processing as long as the user stays
     // connected. Once they disconnect, then...
-    user_disconnected(&id, &context).await;
+    context.write().await.client_disconnect(&id);
 }
 
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
@@ -171,11 +170,4 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
             }
         }
     }
-}
-
-async fn user_disconnected(my_id: &String, context: &SharedConnectionContext) {
-    eprintln!("User disconnected : {}", my_id);
-
-    // Stream closed up, so remove from the user list
-    context.write().await.clients.remove(my_id);
 }

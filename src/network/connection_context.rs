@@ -27,4 +27,21 @@ impl Default for ConnectionContext {
     }
 }
 
+impl ConnectionContext {
+    pub fn client_connect(&mut self, client_id: &String, sender: SplitSink<WebSocket, Message>) {
+        eprintln!("Client connected: {}", client_id);
+        self.clients.insert(client_id.to_string(), sender);
+    }
+
+    pub fn client_disconnect(&mut self, client_id: &String) {
+        eprintln!("Client disconnected : {}", client_id);
+
+        self.clients.remove(client_id);
+
+        if self.clients.len() == 0 {
+            println!("Client list is empty");
+        }
+    }
+}
+
 pub type SharedConnectionContext = Arc<RwLock<ConnectionContext>>;
