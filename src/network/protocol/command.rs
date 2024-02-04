@@ -6,6 +6,7 @@ use crate::network::protocol::infos::infos;
 use crate::network::protocol::promote::promote;
 use crate::network::protocol::quit::quit;
 use crate::network::protocol::remove::remove;
+use crate::network::protocol::subscribe_robot_status::subscribe_robot_status;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Command {
@@ -22,6 +23,7 @@ pub async fn process_command(
         "promote" => promote(command, client_id, context).await,
         "remove" => remove(command, client_id, context).await,
         "infos" => infos(client_id, context).await,
+        "robotStatus" => subscribe_robot_status(client_id, context).await,
         "quit" => quit(command, client_id, context).await,
         _ => println!("Command not supported {}", command.command.as_str()),
     }

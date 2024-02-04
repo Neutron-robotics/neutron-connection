@@ -19,8 +19,12 @@ pub struct Args {
     /// The port for the application to run on
     pub application_port: u16,
 
+    #[clap(long, short, short = 't')]
+    /// The optional timeout (in seconds) before closing the app if no client are connected
+    pub application_timeout: Option<u64>,
+
     #[clap(long, short, short = 'r')]
-    /// The robot id for the connection
+    /// The optional redis connection string for creating the db client
     pub redis_connection_string: Option<String>,
 }
 

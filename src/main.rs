@@ -14,6 +14,11 @@ async fn main() {
     let args = Args::parse();
     let shared_connection_context = SharedConnectionContext::default();
 
+    shared_connection_context.write().await.application_timeout = args.application_timeout;
+    shared_connection_context.write().await.id = args.id.clone();
+    shared_connection_context.write().await.robot_hostname = args.robot_host.clone();
+    shared_connection_context.write().await.robot_port = args.robot_port;
+
     utils::args::print_args(&args);
 
     match args.redis_connection_string {
@@ -39,7 +44,7 @@ async fn main() {
                 "Robot client connected at address ws://{}:{}",
                 &args.robot_host, &args.robot_port
             );
-            println!("neutron connection {} ready", args.id);
+            println!("neutron connection {} ready", shared_connection_context.write().await.id);
         }
         Err(err) => {
             eprintln!("Robot client encountered an error: {}", err);

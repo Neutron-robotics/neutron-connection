@@ -1,20 +1,15 @@
+use crate::network::model::connection_infos::ClientInfo;
 use crate::network::ws_client::send_robot;
 
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
+use super::model::base_message::BaseMessage;
 use super::protocol::command::{process_command, Command};
 use futures_util::{SinkExt, StreamExt};
-use serde::Serialize;
 use serde_json::Value;
 use warp::hyper::StatusCode;
 use warp::ws::{Message, WebSocket};
 use warp::{Filter, Reply};
-
-#[derive(Serialize)]
-pub struct ClientInfo {
-    pub clients_queue: Vec<String>,
-    pub clients_active: Vec<String>,
-}
 
 pub async fn server_start(port: u16, shared_connection_context: SharedConnectionContext) {
     let shared_connection_context = warp::any().map(move || shared_connection_context.clone());
@@ -52,8 +47,7 @@ async fn register_client(
     client_id: String,
     context: SharedConnectionContext,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    println!("Id is {client_id}");
-
+    println!("Registering client {client_id}");
     if context.read().await.clients.contains_key(&client_id) {
         return Ok(
             warp::reply::with_status(warp::reply(), warp::http::StatusCode::BAD_REQUEST)
@@ -62,26 +56,8 @@ async fn register_client(
     }
 
     context.write().await.client_queue.insert(client_id);
-
-    let response = ClientInfo {
-        clients_queue: context
-            .read()
-            .await
-            .client_queue
-            .clone()
-            .into_iter()
-            .collect::<Vec<String>>(),
-        clients_active: context
-            .read()
-            .await
-            .clients
-            .keys()
-            .map(|e| e.to_string())
-            .collect::<Vec<String>>(),
-    };
-
-    let json_response = serde_json::to_string(&response).unwrap();
-
+    let client_infos = ClientInfo::from_context(&*context.read().await);
+    let json_response = serde_json::to_string(&client_infos).unwrap();
     Ok(warp::reply::with_status(json_response, StatusCode::OK).into_response())
 }
 
@@ -97,6 +73,13 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
     // Save the sender in our list of connected users.
     context.write().await.client_connect(&id, sender);
 
+    // motify connected clients about the new connection
+    let client_infos = ClientInfo::from_context(&*context.read().await);
+    let json = serde_json::to_string(&client_infos).unwrap();
+    let message = Message::text(json.clone());
+    send_other(&context, &id, message).await;
+
+    // receive loop for current client
     while let Some(result) = receiver.next().await {
         let msg = match result {
             Ok(msg) => msg,
@@ -111,6 +94,14 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
     // user_ws_rx stream will keep processing as long as the user stays
     // connected. Once they disconnect, then...
     context.write().await.client_disconnect(&id);
+    let client_infos = ClientInfo::from_context(&*context.read().await);
+    let base_message = BaseMessage {
+        message_type: "connectionInfos".to_string(),
+        message: client_infos,
+    };
+    let json = serde_json::to_string(&base_message).unwrap();
+    let message = Message::text(json.clone());
+    send_other(&context, &id, message).await;
 }
 
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
@@ -146,8 +137,6 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
             eprintln!("Failed to deserialize Format2: {:?}", command);
         }
     }
-
-    // Message::text(new_msg.clone())
 }
 
 pub async fn send_other(context: &SharedConnectionContext, client_id: &String, message: Message) {
@@ -168,6 +157,15 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
             if let Err(err) = sender.send(message.clone()).await {
                 eprintln!("Fail to send client {:?}", err);
             }
+        }
+    }
+}
+
+pub async fn send_all_clients(context: &SharedConnectionContext, message: Message) {
+    // Respond to the user defined by the client_id
+    for client in context.write().await.clients.iter_mut() {
+        if let Err(err) = client.1.send(message.clone()).await {
+            eprintln!("Fail to send client {:?}", err);
         }
     }
 }

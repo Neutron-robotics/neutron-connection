@@ -7,6 +7,10 @@ pub async fn remove(command: Command, client_id: &String, context: &SharedConnec
         eprintln!("[Remove] {} is not master, access forbidden", client_id);
         return;
     }
+    println!(
+        "[Remove][{}] Closing sender: {:?}",
+        client_id, &command.params
+    );
 
     let sender: &mut futures_util::stream::SplitSink<warp::ws::WebSocket, warp::ws::Message>;
     let clients = &mut context.write().await.clients;
@@ -20,8 +24,4 @@ pub async fn remove(command: Command, client_id: &String, context: &SharedConnec
     if let Err(err) = sender.close().await {
         eprintln!("Failed to close sender: {:?}", err);
     }
-    println!(
-        "[Remove][{}] Closing sender: {:?}",
-        client_id, &command.params
-    );
 }
