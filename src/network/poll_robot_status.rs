@@ -5,7 +5,7 @@ use super::{
     ws_proxy::send_client,
 };
 use crate::network::model::base_message::BaseMessage;
-use tokio::time::sleep;
+use tokio::time::{sleep, Instant};
 use warp::filters::ws::Message;
 
 pub async fn poll_robot_status(context: &SharedConnectionContext) {
@@ -13,7 +13,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
     let robot_url = format!(
         "http://{}:{}/robot/status",
         context.read().await.robot_hostname,
-        context.read().await.robot_port
+        8000 // todo - modify to robot port
     );
 
     loop {
@@ -22,6 +22,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
             return;
         }
 
+        let start_time = Instant::now();
         let body = match client.get(&robot_url).send().await {
             Ok(value) => value,
             Err(error) => {
@@ -39,8 +40,9 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
                 continue;
             }
         };
+        let elapsed_time = start_time.elapsed().as_millis();
 
-        let robot_status: RobotStatus = match serde_json::from_str(&text) {
+        let mut robot_status: RobotStatus = match serde_json::from_str(&text) {
             Ok(value) => value,
             Err(error) => {
                 println!("Error while decoding robot status response: {}", error);
@@ -48,6 +50,8 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
                 continue;
             }
         };
+
+        robot_status.system.latency = Some(elapsed_time);
 
         println!("made obj");
 

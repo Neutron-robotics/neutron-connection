@@ -136,6 +136,8 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
         } else {
             eprintln!("Failed to deserialize Format2: {:?}", command);
         }
+    } else {
+        eprintln!("Unknown message {}", &msg_str);
     }
 }
 

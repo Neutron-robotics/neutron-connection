@@ -6,6 +6,10 @@ pub async fn subscribe_robot_status(
     client_id: &String,
     context: &SharedConnectionContext,
 ) {
+    if context.read().await.client_subscribed_robot_status.contains(client_id) {
+        return;
+    }
+
     println!("Subscribed client to robot status - {}", client_id);
     context
         .write()

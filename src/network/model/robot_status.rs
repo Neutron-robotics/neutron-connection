@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 pub struct RobotStatus {
     pub status: String,
     pub battery: Option<IBatteryStatus>,
-    pub system: Option<IRobotSystemStatus>,
+    pub system: IRobotSystemStatus,
     pub location: Option<IRobotLocationStatus>,
     pub processes: Option<Vec<IRobotProcess>>,
     pub context: Option<IRobotContextProcess>,
@@ -48,4 +48,5 @@ pub struct IRobotLocationStatus {
 pub struct IRobotSystemStatus {
     pub cpu: f64,
     pub memory: f64,
+    pub latency: Option<u128> 
 }
