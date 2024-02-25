@@ -15,6 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Compile and release
+    - run: cargo update -p clap@4.5.1 --precise 4.1.14
       uses: rust-build/rust-build.action@v1.4.4
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
