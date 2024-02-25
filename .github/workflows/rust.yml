@@ -25,9 +25,9 @@ jobs:
         RUSTTARGET: x86_64-unknown-linux-musl
         EXTRA_FILES: "README.md LICENSE"
     - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: Binary
-          path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: Binary
+        path: |
+          ${{ steps.compile.outputs.BUILT_ARCHIVE }}
+          ${{ steps.compile.outputs.BUILT_CHECKSUM }}
