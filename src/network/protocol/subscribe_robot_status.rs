@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::network::{
     connection_context::SharedConnectionContext, poll_robot_status::poll_robot_status,
 };
@@ -10,7 +12,7 @@ pub async fn subscribe_robot_status(
         return;
     }
 
-    println!("Subscribed client to robot status - {}", client_id);
+    info!(target: "connection_event", "Subscribed client to robot status - {}", client_id);
     context
         .write()
         .await

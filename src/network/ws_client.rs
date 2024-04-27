@@ -1,6 +1,7 @@
 use super::connection_context::SharedConnectionContext;
 use futures_util::stream::{SplitStream, StreamExt};
 use futures_util::SinkExt;
+use log::{info, error};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
@@ -31,7 +32,7 @@ async fn process_socket(
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                eprintln!("websocket error: {}", e);
+                error!(target: "connection_event", "websocket error: {}", e);
                 break;
             }
         };
@@ -46,9 +47,7 @@ async fn robot_message(msg: Message, context: &SharedConnectionContext) {
         return;
     };
 
-    let new_msg = format!("<Robot>: {}", msg_str);
-    println!("{}", new_msg);
-
+    info!(target: "connection_msg", "[robot] [COMMAND] {}", msg_str);
     forward_clients(context, msg).await;
 }
 
@@ -60,7 +59,7 @@ pub async fn send_robot(context: &SharedConnectionContext, message: &warp::filte
         match robot.send(tungstenite_message).await {
             Ok(()) => {}
             Err(err) => {
-                print!("Error while sending message to robot {}", err.to_string());
+                error!(target: "connection_event", "Error while sending message to robot {}", err.to_string());
             }
         }
     }
@@ -70,7 +69,7 @@ pub async fn forward_clients(context: &SharedConnectionContext, msg: Message) {
     let payload = match msg.into_text() {
         Ok(text) => text,
         Err(err) => {
-            eprintln!("Failed to convert message to text: {:?}", err);
+            error!(target: "connection_event", "Failed to convert message to text: {:?}", err);
             return;
         }
     };
@@ -80,7 +79,7 @@ pub async fn forward_clients(context: &SharedConnectionContext, msg: Message) {
 
     for (_, sender) in context.write().await.clients.iter_mut() {
         if let Err(err) = sender.send(warp_message.clone()).await {
-            eprintln!("Fail to send other {:?}", err);
+            error!(target: "connection_event", "Fail to send other {:?}", err);
         }
     }
 }

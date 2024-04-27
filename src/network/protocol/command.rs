@@ -1,3 +1,4 @@
+use log::error;
 use serde::{Deserialize, Serialize};
 
 use crate::network::connection_context::SharedConnectionContext;
@@ -25,6 +26,6 @@ pub async fn process_command(
         "infos" => infos(client_id, context).await,
         "robotStatus" => subscribe_robot_status(client_id, context).await,
         "quit" => quit(command, client_id, context).await,
-        _ => println!("Command not supported {}", command.command.as_str()),
+        _ => error!(target: "connection_event", "Command not supported {}", command.command.as_str()),
     }
 }

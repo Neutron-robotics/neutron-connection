@@ -1,4 +1,5 @@
 use clap::Parser;
+use log::info;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about="The official Neutron websocket connection server that is in charge of transporting and managing network interactions for individual robot connections", long_about = None)]
@@ -29,15 +30,12 @@ pub struct Args {
 }
 
 pub fn print_args(args: &Args) {
-    println!("Args:");
-    println!("id: {}", args.id);
-    println!("robot_host: {}", args.robot_host);
-    println!("robot_port: {}", args.robot_port);
-    println!("application_port: {}", args.application_port);
-    match &args.redis_connection_string {
-        Some(redis_connection_string) => {
-            println!("redis_connection_string: {}", redis_connection_string);
-        }
-        None => {}
+    info!(target: "init", "Intializing the neutron connection with following arguments:");
+    info!(target: "init", "id: {}", args.id);
+    info!(target: "init", "robot_host: {}", args.robot_host);
+    info!(target: "init", "robot_port: {}", args.robot_port);
+    info!(target: "init", "application_port: {}", args.application_port);
+    if let Some(redis_connection_string) = &args.redis_connection_string {
+        info!(target: "init", "redis_connection_string: {}", redis_connection_string);
     }
 }

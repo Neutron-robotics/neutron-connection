@@ -6,6 +6,7 @@ use super::connection_context::SharedConnectionContext;
 use super::model::base_message::BaseMessage;
 use super::protocol::command::{process_command, Command};
 use futures_util::{SinkExt, StreamExt};
+use log::{error, info, warn};
 use serde_json::Value;
 use warp::hyper::StatusCode;
 use warp::ws::{Message, WebSocket};
@@ -47,7 +48,7 @@ async fn register_client(
     client_id: String,
     context: SharedConnectionContext,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    println!("Registering client {client_id}");
+    info!(target: "connection_event", "Registering client {client_id}");
     if context.read().await.clients.contains_key(&client_id) {
         return Ok(
             warp::reply::with_status(warp::reply(), warp::http::StatusCode::BAD_REQUEST)
@@ -63,7 +64,7 @@ async fn register_client(
 
 async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: String) {
     if !context.read().await.client_queue.contains(&id) {
-        eprintln!("Unautorized connection user, refusing {}", id);
+        warn!(target: "connection_event", "Unautorized connection user, refusing {}", id);
         return;
     }
     context.write().await.client_queue.remove(&id);
@@ -84,7 +85,7 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                eprintln!("websocket error(uid={}): {}", id, e);
+                error!(target: "connection_event", "websocket error(uid={}): {}", id, e);
                 break;
             }
         };
@@ -112,32 +113,32 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
         return;
     };
 
-    let new_msg = format!("<User#{}>: {}", my_id, msg_str);
-    println!("{}", new_msg);
-
     // Deserialize the JSON message into a serde_json::Value object
     let json: Value = match serde_json::from_str(&msg_str) {
         Ok(value) => value,
         Err(error) => {
-            eprintln!("Failed to deserialize JSON message: {}", error);
+            error!(target: "connection_event", "Failed to deserialize JSON message: {}", error);
             return;
         }
     };
 
-    if json.get("op").is_some() {
+    let op = json.get("op");
+    if let Some(op_value) = op {
         // Ros message, to be streamed to robot and forwarded to clients
-
+        info!(target: "connection_msg", "[user#{my_id}] [ROS] [{}]", op_value.to_string().trim_matches('"'));
         send_robot(context, &msg).await;
         send_other(context, my_id, msg).await;
-    } else if json.get("command").is_some() {
+    }
+    else if json.get("command").is_some() {
         let command: Result<Command, _> = serde_json::from_value(json);
         if let Ok(command) = command {
+            info!(target: "connection_msg", "[user#{my_id}] [COMMAND] [{}]", command.command);
             process_command(command, my_id, context).await;
         } else {
-            eprintln!("Failed to deserialize Format2: {:?}", command);
+            error!(target: "connection_event","Failed to deserialize Format: {:?}", command);
         }
     } else {
-        eprintln!("Unknown message {}", &msg_str);
+        warn!(target: "connection_event","Unknown message received from user {}", &msg_str);
     }
 }
 
@@ -146,7 +147,7 @@ pub async fn send_other(context: &SharedConnectionContext, client_id: &String, m
     for (uid, sender) in context.write().await.clients.iter_mut() {
         if *client_id != *uid {
             if let Err(err) = sender.send(message.clone()).await {
-                eprintln!("Fail to send other {:?}", err);
+                error!(target: "connection_event", "Fail to send other {:?}", err);
             }
         }
     }
@@ -157,7 +158,7 @@ pub async fn send_client(context: &SharedConnectionContext, client_id: &String, 
     for (uid, sender) in context.write().await.clients.iter_mut() {
         if *client_id == *uid {
             if let Err(err) = sender.send(message.clone()).await {
-                eprintln!("Fail to send client {:?}", err);
+                error!(target: "connection_event", "Fail to send client {:?}", err);
             }
         }
     }
@@ -167,7 +168,7 @@ pub async fn send_all_clients(context: &SharedConnectionContext, message: Messag
     // Respond to the user defined by the client_id
     for client in context.write().await.clients.iter_mut() {
         if let Err(err) = client.1.send(message.clone()).await {
-            eprintln!("Fail to send client {:?}", err);
+            error!(target: "connection_event", "Fail to send client {:?}", err);
         }
     }
 }

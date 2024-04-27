@@ -1,3 +1,4 @@
+use log::error;
 use warp::filters::ws::Message;
 
 use super::command::Command;
@@ -8,12 +9,12 @@ use crate::network::{
 
 pub async fn promote(command: Command, client_id: &String, context: &SharedConnectionContext) {
     if context.read().await.master_id != *client_id {
-        eprintln!("[Promote] {} is not master, access forbidden", client_id);
+        error!(target: "connection_event", "{} is not master, promition forbidden", client_id);
         return;
     }
 
     if !context.read().await.clients.contains_key(&command.params) {
-        eprintln!("[Promote] {} not found", command.params);
+        error!(target: "connection_event", "{} not found, aborting promotion", command.params);
         return;
     }
 

@@ -1,6 +1,7 @@
 use super::command::Command;
 use crate::network::connection_context::SharedConnectionContext;
 use futures_util::SinkExt;
+use log::{error, info};
 
 pub async fn quit(_: Command, client_id: &String, context: &SharedConnectionContext) {
     let sender: &mut futures_util::stream::SplitSink<warp::ws::WebSocket, warp::ws::Message>;
@@ -8,13 +9,13 @@ pub async fn quit(_: Command, client_id: &String, context: &SharedConnectionCont
     if let Some(s) = clients.get_mut(client_id) {
         sender = s;
     } else {
-        eprintln!("Client with ID '{}' not found", client_id);
+        error!(target: "connection_event", "Client with ID '{}' not found, cannot quit", client_id);
         return;
     }
 
     if let Err(err) = sender.close().await {
-        eprintln!("Failed to close sender: {:?}", err);
+        error!(target: "connection_event", "Failed to close sender: {:?}", err);
     }
 
-    println!("[QUIT][{}] Quiting", client_id);
+    info!(target: "connection_event", "[{}] quit connection", client_id);
 }
