@@ -1,7 +1,10 @@
 use super::command::Command;
-use crate::network::connection_context::SharedConnectionContext;
+use crate::network::{
+    connection_context::SharedConnectionContext, model::base_message::BaseMessage,
+};
 use futures_util::SinkExt;
 use log::{error, info};
+use warp::filters::ws::Message;
 
 pub async fn remove(command: Command, client_id: &String, context: &SharedConnectionContext) {
     if context.read().await.master_id != *client_id {
@@ -20,6 +23,17 @@ pub async fn remove(command: Command, client_id: &String, context: &SharedConnec
     } else {
         error!(target: "connection_event", "Client with ID '{}' not found, cannot remove", &command.params);
         return;
+    }
+
+    let message = BaseMessage {
+        message_type: "removedEvent".to_string(),
+        message: {},
+    };
+    let json = serde_json::to_string(&message).unwrap();
+    let message = Message::text(json.clone());
+
+    if let Err(err) = sender.send(message).await {
+        error!(target: "connection_event", "Failed to send remove command: {:?}", err);
     }
 
     if let Err(err) = sender.close().await {

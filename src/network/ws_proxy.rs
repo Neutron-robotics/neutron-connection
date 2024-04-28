@@ -3,8 +3,8 @@ use crate::network::ws_client::send_robot;
 
 // #![deny(warnings)]
 use super::connection_context::SharedConnectionContext;
-use super::model::base_message::BaseMessage;
 use super::protocol::command::{process_command, Command};
+use super::protocol::infos::send_info_others;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
 use serde_json::Value;
@@ -75,10 +75,7 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
     context.write().await.client_connect(&id, sender);
 
     // motify connected clients about the new connection
-    let client_infos = ClientInfo::from_context(&*context.read().await);
-    let json = serde_json::to_string(&client_infos).unwrap();
-    let message = Message::text(json.clone());
-    send_other(&context, &id, message).await;
+    send_info_others(&id, &context).await;
 
     // receive loop for current client
     while let Some(result) = receiver.next().await {
@@ -95,14 +92,9 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
     // user_ws_rx stream will keep processing as long as the user stays
     // connected. Once they disconnect, then...
     context.write().await.client_disconnect(&id);
-    let client_infos = ClientInfo::from_context(&*context.read().await);
-    let base_message = BaseMessage {
-        message_type: "connectionInfos".to_string(),
-        message: client_infos,
-    };
-    let json = serde_json::to_string(&base_message).unwrap();
-    let message = Message::text(json.clone());
-    send_other(&context, &id, message).await;
+
+    // inform other users
+    send_info_others(&id, &context).await;
 }
 
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
