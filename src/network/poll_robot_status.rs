@@ -4,7 +4,7 @@ use super::{
     connection_context::SharedConnectionContext, model::robot_status::RobotStatus,
     ws_proxy::send_client,
 };
-use log::error;
+use log::{error, info};
 use crate::network::model::base_message::BaseMessage;
 use tokio::time::{sleep, Instant};
 use warp::filters::ws::Message;
@@ -65,6 +65,8 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         for client_id in client_ids {            
             send_client(context, &client_id, message.clone()).await;
         }
+
+        info!(target: "system_health", "{}", text);
 
         sleep(Duration::from_millis(500)).await;
     }

@@ -47,7 +47,7 @@ async fn robot_message(msg: Message, context: &SharedConnectionContext) {
         return;
     };
 
-    info!(target: "connection_msg", "[robot] [COMMAND] {}", msg_str);
+    info!(target: "system_msg", "[robot] [COMMAND] {}", msg_str);
     forward_clients(context, msg).await;
 }
 
