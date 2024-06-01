@@ -1,4 +1,5 @@
 use futures_util::stream::SplitSink;
+use log::info;
 use std::collections::{HashMap, HashSet};
 use std::process::exit;
 use std::sync::Arc;
@@ -46,7 +47,7 @@ impl Default for ConnectionContext {
 
 impl ConnectionContext {
     pub fn client_connect(&mut self, client_id: &String, sender: SplitSink<WebSocket, Message>) {
-        eprintln!("Client connected: {}", client_id);
+        info!(target: "connection_event", "Client connected: {}", client_id);
 
         if self.master_id.is_empty() && self.clients.is_empty() {
             self.master_id = client_id.to_string();
@@ -55,26 +56,24 @@ impl ConnectionContext {
         self.clients.insert(client_id.to_string(), sender);
 
         if let Some(timer) = self.shutdown_handle.take() {
-            println!("Dropping timer");
             timer.abort();
         }
     }
 
     pub fn client_disconnect(&mut self, client_id: &String) {
-        eprintln!("Client disconnected : {}", client_id);
+        info!(target: "connection_event", "Client disconnected : {}", client_id);
 
         self.clients.remove(client_id);
         self.client_subscribed_robot_status
             .retain(|s| s != client_id);
 
         if self.clients.len() == 0 && self.application_timeout.is_some() {
-            println!("Client list is empty");
             self.start_shutdown_timer(self.application_timeout.unwrap());
         }
 
         if self.client_subscribed_robot_status.len() == 0 {
             if let Some(handle) = self.robot_status_pull_handle.take() {
-                println!("No client subscribed to robot status, stopping polling");
+                info!(target: "connection_event", "Stopping robot polling (NO_CLIENT_CONNECTED");
                 handle.abort();
             }
         }
@@ -82,9 +81,9 @@ impl ConnectionContext {
 
     fn start_shutdown_timer(&mut self, timeout: u64) {
         let join_handle = tokio::spawn(async move {
-            println!("Will shutdown!");
+            info!(target: "init", "No connected client, initiating shutdown procedure ({timeout} seconds)");
             sleep(Duration::from_secs(timeout)).await;
-            println!("Shutting down the app...");
+            info!(target: "init", "Shutting down the app...");
             exit(0);
         });
 

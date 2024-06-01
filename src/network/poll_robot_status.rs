@@ -4,6 +4,7 @@ use super::{
     connection_context::SharedConnectionContext, model::robot_status::RobotStatus,
     ws_proxy::send_client,
 };
+use log::{error, info};
 use crate::network::model::base_message::BaseMessage;
 use tokio::time::{sleep, Instant};
 use warp::filters::ws::Message;
@@ -17,8 +18,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
     );
 
     loop {
-        if context.read().await.client_subscribed_robot_status.len() == 0 {
-            println!("Existing robot status loop as no handle is defined");
+        if context.read().await.client_subscribed_robot_status.len() == 0 {            
             return;
         }
 
@@ -26,7 +26,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let body = match client.get(&robot_url).send().await {
             Ok(value) => value,
             Err(error) => {
-                println!("Error while fetching robot status: {}", error);
+                error!(target: "connection_event", "Error while fetching robot status: {}", error);
                 sleep(Duration::from_millis(500)).await;
                 continue;
             }
@@ -35,7 +35,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let text = match body.text().await {
             Ok(text) => text,
             Err(error) => {
-                println!("Error while decoding robot status response: {}", error);
+                error!(target: "connection_event", "Error while decoding robot status response: {}", error);
                 sleep(Duration::from_millis(500)).await;
                 continue;
             }
@@ -45,15 +45,13 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let mut robot_status: RobotStatus = match serde_json::from_str(&text) {
             Ok(value) => value,
             Err(error) => {
-                println!("Error while decoding robot status response: {}", error);
+                error!(target: "connection_event", "Error while decoding robot status response: {}", error);
                 sleep(Duration::from_millis(500)).await;
                 continue;
             }
         };
 
-        robot_status.system.latency = Some(elapsed_time);
-
-        println!("made obj");
+        robot_status.system.latency = Some(elapsed_time);        
 
         let base_message = BaseMessage {
             message_type: "robotStatus".to_string(),
@@ -64,10 +62,11 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let message = Message::text(serialized_message);
 
         let client_ids = context.read().await.client_subscribed_robot_status.clone();
-        for client_id in client_ids {
-            println!("sending to client");
+        for client_id in client_ids {            
             send_client(context, &client_id, message.clone()).await;
         }
+
+        info!(target: "system_health", "{}", text);
 
         sleep(Duration::from_millis(500)).await;
     }
