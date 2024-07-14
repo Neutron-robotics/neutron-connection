@@ -8,6 +8,7 @@ use super::protocol::infos::send_info_others;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
 use serde_json::Value;
+use std::str;
 use warp::hyper::StatusCode;
 use warp::ws::{Message, WebSocket};
 use warp::{Filter, Reply};
@@ -101,7 +102,12 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
     // Skip any non-Text messages...
 
-    info!(target: "connection_msg", "TMP user_msg!");
+    info!(target: "connection_msg", "TMP received raw message: {:?}", msg);
+
+    let msg_bytes = msg.as_bytes();
+    let msg_str = str::from_utf8(msg_bytes).unwrap_or_else(|_| "<invalid UTF-8>");
+
+    info!(target: "connection_msg", "TMP try to deserialize: {}", msg_str);
 
     let msg_str = if let Ok(s) = msg.to_str() {
         s
@@ -126,8 +132,7 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
         info!(target: "connection_msg", "[user#{my_id}] [ROS] [{}]", op_value.to_string().trim_matches('"'));
         send_robot(context, &msg).await;
         send_other(context, my_id, msg).await;
-    }
-    else if json.get("command").is_some() {
+    } else if json.get("command").is_some() {
         let command: Result<Command, _> = serde_json::from_value(json);
         if let Ok(command) = command {
             info!(target: "connection_msg", "[user#{my_id}] [COMMAND] [{}]", command.command);
