@@ -41,7 +41,7 @@ pub async fn server_start(port: u16, shared_connection_context: SharedConnection
 
     let routes = connection.or(register);
 
-    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
 async fn register_client(
