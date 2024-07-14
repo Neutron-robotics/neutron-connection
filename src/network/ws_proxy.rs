@@ -78,6 +78,7 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
     send_info_others(&id, &context).await;
 
     // receive loop for current client
+    info!(target: "connection_msg", "TMP waiting for msgs!");
     while let Some(result) = receiver.next().await {
         let msg = match result {
             Ok(msg) => msg,
@@ -99,11 +100,16 @@ async fn user_connected(ws: WebSocket, context: SharedConnectionContext, id: Str
 
 async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionContext) {
     // Skip any non-Text messages...
+
+    info!(target: "connection_msg", "TMP user_msg!");
+
     let msg_str = if let Ok(s) = msg.to_str() {
         s
     } else {
         return;
     };
+
+    info!(target: "connection_msg", "TMP received message !");
 
     // Deserialize the JSON message into a serde_json::Value object
     let json: Value = match serde_json::from_str(&msg_str) {
