@@ -104,18 +104,40 @@ async fn user_message(my_id: &String, msg: Message, context: &SharedConnectionCo
 
     info!(target: "connection_msg", "TMP received raw message: {:?}", msg);
 
-    let msg_bytes = msg.as_bytes();
-    let msg_str = str::from_utf8(msg_bytes).unwrap_or_else(|_| "<invalid UTF-8>");
+    // let msg_bytes = msg.as_bytes();
+    // let msg_str = str::from_utf8(msg_bytes).unwrap_or_else(|_| "<invalid UTF-8>");
 
-    info!(target: "connection_msg", "TMP try to deserialize: {}", msg_str);
+    // info!(target: "connection_msg", "TMP try to deserialize: {}", msg_str);
 
-    let msg_str = if let Ok(s) = msg.to_str() {
-        s
+    // let msg_str = if let Ok(s) = msg.to_str() {
+    //     s
+    // } else {
+    //     return;
+    // };
+
+    // info!(target: "connection_msg", "TMP received message !");
+
+    // d
+
+    let msg_str = if let Ok(text) = msg.to_str() {
+        info!(target: "connection_msg", "TMP received text message: {}", text);
+        text.to_string()
     } else {
-        return;
+        // If it's not a text message, handle it as bytes and attempt to convert to UTF-8
+        let msg_bytes = msg.as_bytes();
+        match str::from_utf8(msg_bytes) {
+            Ok(text) => {
+                info!(target: "connection_msg", "TMP received binary message, converted to text: {}", text);
+                text.to_string()
+            }
+            Err(_) => {
+                error!(target: "connection_msg", "Received non-UTF-8 binary WebSocket message");
+                return;
+            }
+        }
     };
 
-    info!(target: "connection_msg", "TMP received message !");
+    // e
 
     // Deserialize the JSON message into a serde_json::Value object
     let json: Value = match serde_json::from_str(&msg_str) {
