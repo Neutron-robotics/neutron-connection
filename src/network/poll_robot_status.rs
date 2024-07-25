@@ -11,10 +11,15 @@ use warp::filters::ws::Message;
 
 pub async fn poll_robot_status(context: &SharedConnectionContext) {
     let client = reqwest::Client::new();
+    // let robot_url = format!(
+    //     "http://{}:{}/robot/status",
+    //     context.read().await.robot_hostname,
+    //     8000 // todo - modify to robot port
+    // );
+
     let robot_url = format!(
-        "http://{}:{}/robot/status",
-        context.read().await.robot_hostname,
-        8000 // todo - modify to robot port
+        "http://rsshd:{}/robot/status",
+        context.read().await.robot_port - 1
     );
 
     loop {
