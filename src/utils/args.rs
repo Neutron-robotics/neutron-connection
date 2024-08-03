@@ -12,9 +12,13 @@ pub struct Args {
     /// The hostname of the robot to be connected to
     pub robot_host: String,
 
-    #[clap(long, short, short = 'd')]
-    /// The port of the robot to be connected to
-    pub robot_port: u16,
+    #[clap(long)]
+    /// The port of the robot to be connected to its context (RosBridge, Neutron...)
+    pub robot_context_port: u16,
+
+    #[clap(long)]
+    /// The port of the robot to be connected to the neutron agent
+    pub robot_agent_port: u16,
 
     #[clap(long, short, short = 'p')]
     /// The port for the application to run on
@@ -33,7 +37,8 @@ pub fn print_args(args: &Args) {
     info!(target: "init", "Intializing the neutron connection with following arguments:");
     info!(target: "init", "id: {}", args.id);
     info!(target: "init", "robot_host: {}", args.robot_host);
-    info!(target: "init", "robot_port: {}", args.robot_port);
+    info!(target: "init", "robot_agent_port: {}", args.robot_agent_port);
+    info!(target: "init", "robot_context_port: {}", args.robot_context_port);
     info!(target: "init", "application_port: {}", args.application_port);
     if let Some(redis_connection_string) = &args.redis_connection_string {
         info!(target: "init", "redis_connection_string: {}", redis_connection_string);

@@ -23,7 +23,8 @@ pub struct ConnectionContext {
     pub robot_status_pull_handle: Option<JoinHandle<()>>,
     pub application_timeout: Option<u64>,
     pub robot_hostname: String,
-    pub robot_port: u16
+    pub robot_context_port: u16,
+    pub robot_agent_port: u16
 }
 
 impl Default for ConnectionContext {
@@ -40,7 +41,8 @@ impl Default for ConnectionContext {
             robot_status_pull_handle: None,
             application_timeout: None,
             robot_hostname: "".to_string(),
-            robot_port: 0
+            robot_context_port: 0,
+            robot_agent_port: 0
         }
     }
 }

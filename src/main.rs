@@ -44,7 +44,8 @@ async fn main() {
     shared_connection_context.write().await.application_timeout = args.application_timeout;
     shared_connection_context.write().await.id = args.id.clone();
     shared_connection_context.write().await.robot_hostname = args.robot_host.clone();
-    shared_connection_context.write().await.robot_port = args.robot_port;
+    shared_connection_context.write().await.robot_context_port = args.robot_context_port;
+    shared_connection_context.write().await.robot_agent_port = args.robot_agent_port;
 
     utils::args::print_args(&args);
 
@@ -62,14 +63,14 @@ async fn main() {
     match websocket_client(
         &shared_connection_context,
         &args.robot_host,
-        &args.robot_port,
+        &args.robot_context_port,
     )
     .await
     {
         Ok(()) => {
             info!(target: "init",
                 "Robot client connected at address ws://{}:{}",
-                &args.robot_host, &args.robot_port
+                &args.robot_host, &args.robot_context_port
             );
             info!(target: "init",
                 "neutron connection {} ready",

@@ -4,8 +4,8 @@ use super::{
     connection_context::SharedConnectionContext, model::robot_status::RobotStatus,
     ws_proxy::send_client,
 };
-use log::{error, info};
 use crate::network::model::base_message::BaseMessage;
+use log::{error, info};
 use tokio::time::{sleep, Instant};
 use warp::filters::ws::Message;
 
@@ -17,13 +17,19 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
     //     8000 // todo - modify to robot port
     // );
 
+    // let robot_url = format!(
+    //     "http://rsshd:{}/robot/status",
+    //     context.read().await.robot_port - 1
+    // );
+
     let robot_url = format!(
-        "http://rsshd:{}/robot/status",
-        context.read().await.robot_port - 1
+        "http://{}:{}/robot/status",
+        context.read().await.robot_hostname,
+        context.read().await.robot_agent_port
     );
 
     loop {
-        if context.read().await.client_subscribed_robot_status.len() == 0 {            
+        if context.read().await.client_subscribed_robot_status.len() == 0 {
             return;
         }
 
@@ -56,7 +62,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
             }
         };
 
-        robot_status.system.latency = Some(elapsed_time);        
+        robot_status.system.latency = Some(elapsed_time);
 
         let base_message = BaseMessage {
             message_type: "robotStatus".to_string(),
@@ -67,7 +73,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let message = Message::text(serialized_message);
 
         let client_ids = context.read().await.client_subscribed_robot_status.clone();
-        for client_id in client_ids {            
+        for client_id in client_ids {
             send_client(context, &client_id, message.clone()).await;
         }
 
