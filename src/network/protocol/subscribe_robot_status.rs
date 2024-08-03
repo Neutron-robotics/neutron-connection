@@ -4,11 +4,16 @@ use crate::network::{
     connection_context::SharedConnectionContext, poll_robot_status::poll_robot_status,
 };
 
-pub async fn subscribe_robot_status(
-    client_id: &String,
-    context: &SharedConnectionContext,
-) {
-    if context.read().await.client_subscribed_robot_status.contains(client_id) {
+pub async fn subscribe_robot_status(client_id: &String, context: &SharedConnectionContext) {
+    info!(target: "connection_event", "Subscribe robot status");
+
+    if context
+        .read()
+        .await
+        .client_subscribed_robot_status
+        .contains(client_id)
+    {
+        info!(target: "connection_event", "Client already subscribed, returning");
         return;
     }
 

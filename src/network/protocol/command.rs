@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 
 use crate::network::connection_context::SharedConnectionContext;
@@ -20,6 +20,8 @@ pub async fn process_command(
     client_id: &String,
     context: &SharedConnectionContext,
 ) {
+    info!(target: "connection_event", "Received command - {}", command.command.as_str());
+
     match command.command.as_str() {
         "promote" => promote(command, client_id, context).await,
         "remove" => remove(command, client_id, context).await,
