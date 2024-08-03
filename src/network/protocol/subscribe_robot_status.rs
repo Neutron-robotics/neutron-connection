@@ -24,9 +24,12 @@ pub async fn subscribe_robot_status(client_id: &String, context: &SharedConnecti
         .client_subscribed_robot_status
         .push(client_id.clone());
 
+    info!(target: "connection_event", "3");
     let connection_context_clone = context.clone();
 
-    if context.write().await.client_subscribed_robot_status.len() == 1 {
+    info!(target: "connection_event", "4");
+    if context.read().await.client_subscribed_robot_status.len() == 1 {
+        info!(target: "connection_event", "5");
         tokio::spawn(async move { poll_robot_status(&connection_context_clone).await });
     }
 }

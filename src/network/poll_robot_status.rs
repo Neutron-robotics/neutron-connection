@@ -8,20 +8,8 @@ use crate::network::model::base_message::BaseMessage;
 use log::{error, info};
 use tokio::time::{sleep, Instant};
 use warp::filters::ws::Message;
-
 pub async fn poll_robot_status(context: &SharedConnectionContext) {
     let client = reqwest::Client::new();
-    // let robot_url = format!(
-    //     "http://{}:{}/robot/status",
-    //     context.read().await.robot_hostname,
-    //     8000 // todo - modify to robot port
-    // );
-
-    // let robot_url = format!(
-    //     "http://rsshd:{}/robot/status",
-    //     context.read().await.robot_port - 1
-    // );
-
     let robot_url = format!(
         "http://{}:{}/robot/status",
         context.read().await.robot_hostname,
@@ -29,10 +17,13 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
     );
 
     loop {
-        if context.read().await.client_subscribed_robot_status.len() == 0 {
+        let client_count = context.read().await.client_subscribed_robot_status.len();
+        if client_count == 0 {
+            info!(target: "connection_event", "No clients subscribed, exiting poll loop.");
             return;
         }
 
+        info!(target: "connection_event", "Polling robot status for {} clients.", client_count);
         let start_time = Instant::now();
         let body = match client.get(&robot_url).send().await {
             Ok(value) => value,
@@ -56,7 +47,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
         let mut robot_status: RobotStatus = match serde_json::from_str(&text) {
             Ok(value) => value,
             Err(error) => {
-                error!(target: "connection_event", "Error while decoding robot status response: {}", error);
+                error!(target: "connection_event", "Error while decoding robot status JSON: {}", error);
                 sleep(Duration::from_millis(500)).await;
                 continue;
             }
@@ -74,6 +65,7 @@ pub async fn poll_robot_status(context: &SharedConnectionContext) {
 
         let client_ids = context.read().await.client_subscribed_robot_status.clone();
         for client_id in client_ids {
+            info!(target: "connection_event", "Sending status to client {}", client_id);
             send_client(context, &client_id, message.clone()).await;
         }
 
